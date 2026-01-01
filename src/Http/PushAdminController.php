@@ -15,11 +15,21 @@ class PushAdminController extends Controller
 {
    public function index()
 {
-    return view('admin.push.index', [
+    return view('pwa::admin.push.index', [
         'users' => User::select('id','name','email')->get(),
         'cities' => User::select('pais_id')->distinct()->pluck('pais_id'),
     ]);
 }
+
+   private function resolveNotificationModel()
+    {
+    $website = app(\Hyn\Tenancy\Environment::class)->website();
+
+    return $website 
+        ? \Sitedigitalweb\Pagina\Tenant\PushNotification::class
+        : \Sitedigitalweb\Pagina\PushNotification::class;
+    }
+
 
  private function resolveUserModel(){
     $website = app(\Hyn\Tenancy\Environment::class)->website();
@@ -102,6 +112,16 @@ public function send(Request $request)
         );
     }
 
+    $notificationModel = $this->resolveNotificationModel();
+
+    $notification = $notificationModel::create([
+        'title' => $request->title,
+        'body'  => $request->body,
+        'url'   => $request->url ?? '/',
+        'total' => $subscriptions->count(),
+]);
+
+
     // 3️⃣ Limpieza automática
     foreach ($webPush->flush() as $report) {
         if (!$report->isSuccess()) {
@@ -147,7 +167,7 @@ function getSubscriptionsByTarget(array $target)
 public function history()
 {
     $model = $this->resolveNotiModel();
-    return view('admin.push.history', [
+    return view('pwa::admin.push.history', [
         'notifications' => $model::latest()->paginate(20)
     ]);
 }
