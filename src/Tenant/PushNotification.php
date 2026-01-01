@@ -2,8 +2,9 @@
 
 namespace Sitedigitalweb\Pwa\Tenant;
 
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Sitedigitalweb\Pwa\Tenant\PushNotificationLog;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Hyn\Tenancy\Traits\UsesTenantConnection;
 
 class PushNotification extends Model
@@ -24,3 +25,4 @@ class PushNotification extends Model
         return $this->hasMany(PushNotificationLog::class);
     }
 }
+

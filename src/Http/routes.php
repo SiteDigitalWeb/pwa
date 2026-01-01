@@ -16,14 +16,12 @@ Route::post('/push-subscribe', function (Illuminate\Http\Request $request) {
 });
 
 
-
-
-
 Route::middleware(['web'])->group(function () {
     Route::get('/admin/push', [Sitedigitalweb\Pwa\Http\PushAdminController::class, 'index']);
     Route::get('/admin/history', [Sitedigitalweb\Pwa\Http\PushAdminController::class, 'history']);
     Route::post('/admin/push/send', [Sitedigitalweb\Pwa\Http\PushAdminController::class, 'send']);
 });
+
 
 
 Route::prefix('admin')->name('admin.')->group(function () {

@@ -30,6 +30,15 @@ class PushAdminController extends Controller
   }
 
 
+ private function resolveNotiModel(){
+    $website = app(\Hyn\Tenancy\Environment::class)->website();
+
+    return $website 
+        ? \Sitedigitalweb\Pwa\Tenant\PushNotification::class
+        : \Sitedigitalweb\Pwa\PushNotification::class;
+  }
+
+
 
 public function send(Request $request)
 {
@@ -137,8 +146,9 @@ function getSubscriptionsByTarget(array $target)
 
 public function history()
 {
+    $model = $this->resolveNotiModel();
     return view('admin.push.history', [
-        'notifications' => PushNotification::latest()->paginate(20)
+        'notifications' => $model::latest()->paginate(20)
     ]);
 }
 
