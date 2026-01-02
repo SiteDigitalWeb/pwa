@@ -15,7 +15,10 @@
                                     <th>Mensaje</th>
                                     <th>Destino</th>
                                     <th>Fecha</th>
-                                    <th>Estado</th>
+                                    <th>Url</th>
+                                    <th>T. Envios</th>
+                                    <th>Envios OK</th>
+                                    <th>Fallidos</th>
                                     <th>Acciones</th>
                                 </tr>
                             </thead>
@@ -25,9 +28,18 @@
                                     <td>{{ $n->title }}</td>
                                     <td>{{ $n->body }}</td>
                                     <td>{{ $n->target === 'all' ? 'Todos' : 'Usuarios específicos' }}</td>
-                                    <td><span class="badge bg-success">{{ $n->created_at }}</span></td>
+                                    <td class="text-center"><span class="label label-warning">{{ $n->created_at }}</span></td>
                                     <td>
-                                        <!-- Aquí debes agregar el estado si existe -->
+                                      {{ $n->url }}
+                                    </td>
+                                     <td class="text-center">
+                                      <span class="label label-primary">{{ $n->total }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                      <span class="label label-success">{{ $n->sent }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                      <span class="label label-danger">{{ $n->failed }}</span>
                                     </td>
                                     <td>
                                         <div class="btn-group">

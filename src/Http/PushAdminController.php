@@ -29,7 +29,14 @@ class PushAdminController extends Controller
         ? \Sitedigitalweb\Pagina\Tenant\PushNotification::class
         : \Sitedigitalweb\Pagina\PushNotification::class;
     }
+private function resolveNotificationLogModel()
+    {
+    $website = app(\Hyn\Tenancy\Environment::class)->website();
 
+    return $website 
+        ? \Sitedigitalweb\Pagina\Tenant\PushNotificationLog::class
+        : \Sitedigitalweb\Pagina\PushNotificationLog::class;
+    }
 
  private function resolveUserModel(){
     $website = app(\Hyn\Tenancy\Environment::class)->website();
@@ -52,8 +59,9 @@ class PushAdminController extends Controller
 
 public function send(Request $request)
 {
-
     $model = $this->resolveUserModel();
+    $modellog = $this-> resolveNotificationLogModel();
+
     $request->validate([
         'title' => 'required',
         'body'  => 'required',
@@ -62,22 +70,16 @@ public function send(Request $request)
     // 1️⃣ Resolver destinatarios
     $subscriptions = $model::query();
 
-    // 🎯 Usuarios específicos
     if ($request->filled('users')) {
         $subscriptions->whereIn('user_id', $request->users);
-    }
-    else {
-        // 🧩 Segmentos
+    } else {
         $subscriptions->whereHas('user', function ($q) use ($request) {
-
             if ($request->filled('rol_id')) {
-                $q->where('rol_id', $request->role);
+                $q->where('rol_id', $request->rol_id); // Corregido: 'role' por 'rol_id'
             }
-
             if ($request->filled('city')) {
                 $q->where('city', $request->city);
             }
-
             if ($request->filled('status')) {
                 $q->where('status', $request->status);
             }
@@ -85,8 +87,24 @@ public function send(Request $request)
     }
 
     $subscriptions = $subscriptions->get();
+    $totalSubscriptions = $subscriptions->count();
 
-    // 2️⃣ Enviar push
+    if ($totalSubscriptions === 0) {
+        return back()->with('warning', 'No hay destinatarios para enviar la notificación.');
+    }
+
+    // 2️⃣ Crear notificación
+    $notificationModel = $this->resolveNotificationModel();
+    $notification = $notificationModel::create([
+        'title' => $request->title,
+        'body'  => $request->body,
+        'url'   => $request->url ?? '/',
+        'total' => $totalSubscriptions,
+        'sent'  => 0,
+        'failed' => 0,
+    ]);
+
+    // 3️⃣ Configurar WebPush
     $webPush = new WebPush([
         'VAPID' => [
             'subject' => config('push.subject'),
@@ -101,6 +119,7 @@ public function send(Request $request)
         'url'   => $request->url ?? '/',
     ]);
 
+    // 4️⃣ Encolar notificaciones
     foreach ($subscriptions as $sub) {
         $webPush->queueNotification(
             Subscription::create([
@@ -112,24 +131,43 @@ public function send(Request $request)
         );
     }
 
-    $notificationModel = $this->resolveNotificationModel();
+    // 5️⃣ Enviar y procesar resultados
+    $successCount = 0;
+    $failedCount = 0;
 
-    $notification = $notificationModel::create([
-        'title' => $request->title,
-        'body'  => $request->body,
-        'url'   => $request->url ?? '/',
-        'total' => $subscriptions->count(),
-]);
-
-
-    // 3️⃣ Limpieza automática
     foreach ($webPush->flush() as $report) {
-        if (!$report->isSuccess()) {
-            PushSubscription::where('endpoint', $report->getEndpoint())->delete();
+        $endpoint = $report->getEndpoint();
+        
+        // Crear log para cada envío
+        $modellog::create([
+            'push_notification_id' => $notification->id,
+            'endpoint' => $endpoint,
+            'success' => $report->isSuccess(),
+            'error' => !$report->isSuccess() ? $report->getReason() : null,
+        ]);
+
+        if ($report->isSuccess()) {
+            $successCount++;
+        } else {
+            $failedCount++;
+            // Eliminar suscripción fallida
+            $model::where('endpoint', $endpoint)->delete();
         }
     }
 
-    return back()->with('success', 'Notificación enviada');
+    // 6️⃣ Actualizar estadísticas
+    $notification->update([
+        'sent' => $successCount,
+        'failed' => $failedCount,
+    ]);
+
+    // 7️⃣ Mensaje de respuesta
+    $message = "Notificación enviada. ";
+    $message .= "Total: {$totalSubscriptions}, ";
+    $message .= "Exitosos: {$successCount}, ";
+    $message .= "Fallidos: {$failedCount}";
+
+    return back()->with('success', $message);
 }
 
 function getSubscriptionsByTarget(array $target)
